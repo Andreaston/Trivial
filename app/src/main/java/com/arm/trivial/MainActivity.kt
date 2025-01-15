@@ -47,7 +47,8 @@ fun navegacion(){
     NavHost(navController = navegacionControlador, startDestination = "Pantalla_Inicio"){
         composable("Pantalla_Inicio") { Pantalla_Inicio(navegacionControlador) }
         composable("Pantalla_Juego") { Pantalla_Juego(navegacionControlador) }
-        composable("Pantalla_Final") { Pantalla_Final(navegacionControlador) }
+        composable("Pantalla_Final/{puntuacion}") { backStackEntry -> val puntuacion = backStackEntry.arguments?.getString("puntuacion")?.toInt() ?:0
+            Pantalla_Final(navegacionControlador, puntuacion) }
     }
 
 }
@@ -78,6 +79,8 @@ fun Pantalla_Inicio(navegacionControlador: NavHostController){
 fun Pantalla_Juego(navegacionControlador: NavHostController){
 
     var indicePreguntas by remember { mutableStateOf(0) }
+    var puntuacion by remember { mutableStateOf(0) }
+
     val preguntas = listOf(
         Pregunta(
             text = "¿2+2?",
@@ -101,16 +104,19 @@ fun Pantalla_Juego(navegacionControlador: NavHostController){
         )
     )
 
-    if (indicePreguntas < preguntas.size){
+    if (indicePreguntas < preguntas.size) {
         PreguntasPantalla(
             pregunta = preguntas[indicePreguntas],
-            siguiente = {
+            siguiente = { respuestaCorrecta ->
+                if (respuestaCorrecta) {
+                    puntuacion++
+                }
                 indicePreguntas++
             }
         )
-    }else{ //Si se acaba la lista de preguntas salta a la última pantalla
+    } else { // Si se acaban las preguntas, navegar a la pantalla final con la puntuación
         LaunchedEffect(Unit) {
-            navegacionControlador.navigate("Pantalla_Final")
+            navegacionControlador.navigate("Pantalla_Final/$puntuacion")
         }
     }
 
@@ -120,7 +126,7 @@ data class Pregunta(val text: String, val options: List<String>, val correctInde
 
 //Pantalla del juego con lo que se muestra por pantalla
 @Composable
-fun PreguntasPantalla(pregunta: Pregunta, siguiente: () -> Unit){
+fun PreguntasPantalla(pregunta: Pregunta, siguiente: (Boolean) -> Unit) {
 
     var opcionContestada by remember { mutableStateOf(-1) }
     var mostrarBotonSiguiente by remember { mutableStateOf(false) }
@@ -134,7 +140,7 @@ fun PreguntasPantalla(pregunta: Pregunta, siguiente: () -> Unit){
             .fillMaxSize()
             .padding(16.dp),
         verticalArrangement = Arrangement.SpaceBetween
-    ){
+    ) {
         Text(text = pregunta.text, fontSize = 20.sp, fontWeight = FontWeight.Bold)
 
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -147,27 +153,34 @@ fun PreguntasPantalla(pregunta: Pregunta, siguiente: () -> Unit){
                         }
                     },
                     shape = RoundedCornerShape(8.dp),
-                    enabled = opcionContestada == -1
+                    enabled = opcionContestada == -1,
+                    colors = if (opcionContestada == index && index == pregunta.correctIndex) {
+                        ButtonDefaults.buttonColors(containerColor = Color.Green)
+                    } else if (opcionContestada == index) {
+                        ButtonDefaults.buttonColors(containerColor = Color.Red)
+                    } else {
+                        ButtonDefaults.buttonColors()
+                    }
                 ) {
                     Text(text = option)
                 }
             }
-
         }
-        //Si se pulsa una respuesta aparece este botón
-        if (mostrarBotonSiguiente){
-
-            Button(onClick = siguiente, modifier = Modifier.align(Alignment.CenterHorizontally)) {
+        if (mostrarBotonSiguiente) {
+            Button(
+                onClick = { siguiente(opcionContestada == pregunta.correctIndex) },
+                modifier = Modifier.align(Alignment.CenterHorizontally)
+            ) {
                 Text(text = "Siguiente Pregunta")
             }
-
         }
     }
 }
 
+
 //Pantalla del final
 @Composable
-fun Pantalla_Final(navegacionControlador: NavHostController){
+fun Pantalla_Final(navegacionControlador: NavHostController, puntuacion: Int){
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -175,9 +188,9 @@ fun Pantalla_Final(navegacionControlador: NavHostController){
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Text("Has terminado el juego del Trivial")
+        Text("Has terminado el juego del Trivial", fontSize = 20.sp, fontWeight = FontWeight.Bold)
         Spacer(modifier = Modifier.height(8.dp))
-        Text("Pulsa en 'Volver a Jugar' para comenzar una nueva partida")
+        Text("Tu puntuación es: $puntuacion", fontSize = 18.sp)
         Spacer(modifier = Modifier.height(8.dp))
         Button(onClick = {navegacionControlador.navigate("Pantalla_Inicio")}) { Text("Volver a jugar") }
 
